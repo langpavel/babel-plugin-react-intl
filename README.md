@@ -1,6 +1,8 @@
-# babel-plugin-react-intl
+# @langpavel/babel-plugin-react-intl
 
-Extracts string messages for translation from modules that use [React Intl][].
+This is fork of [`babel-plugin-react-intl`](https://github.com/yahoo/babel-plugin-react-intl)
+
+Extracts string messages for translation from modules.
 
 _**Note:** This Babel plugin works with React Intl v2.x, and **1.x of this plugin works with Babel 5, 2.x works with Babel 6**._
 
