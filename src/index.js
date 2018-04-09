@@ -18,7 +18,7 @@ const FUNCTION_NAMES = [
     'defineMessages',
 ];
 
-const DESCRIPTOR_PROPS = new Set(['id', 'description', 'defaultMessage']);
+const DESCRIPTOR_PROPS = new Set(['id', 'description', 'defaultMessage', 'default']);
 
 const EXTRACTED = Symbol('ReactIntlExtracted');
 const MESSAGES  = Symbol('ReactIntlMessages');
@@ -97,11 +97,11 @@ export default function ({types: t}) {
         }
     }
 
-    function createMessageDescriptor(propPaths) {
+    function createMessageDescriptor(allowedProps, propPaths) {
         return propPaths.reduce((hash, [keyPath, valuePath]) => {
             const key = getMessageDescriptorKey(keyPath);
 
-            if (DESCRIPTOR_PROPS.has(key)) {
+            if (allowedProps.has(key)) {
                 hash[key] = valuePath;
             }
 
@@ -123,24 +123,24 @@ export default function ({types: t}) {
         return descriptor;
     }
 
-    function storeMessage({id, description, defaultMessage}, path, state) {
+    function storeMessage(msg, path, state) {
         const {file, opts} = state;
 
-        if (!(id && defaultMessage)) {
+        if (!(msg.id && msg.defaultMessage)) {
             throw path.buildCodeFrameError(
                 '[React Intl] Message Descriptors require an `id` and `defaultMessage`.'
             );
         }
 
         const messages = file.get(MESSAGES);
-        if (messages.has(id)) {
-            const existing = messages.get(id);
+        if (messages.has(msg.id)) {
+            const existing = messages.get(msg.id);
 
-            if (description !== existing.description ||
-                defaultMessage !== existing.defaultMessage) {
+            if (msg.description !== existing.description ||
+                msg.defaultMessage !== existing.msg.defaultMessage) {
 
                 throw path.buildCodeFrameError(
-                    `[React Intl] Duplicate message id: "${id}", ` +
+                    `[React Intl] Duplicate message id: "${msg.id}", ` +
                     'but the `description` and/or `defaultMessage` are different.'
                 );
             }
@@ -148,8 +148,8 @@ export default function ({types: t}) {
 
         if (opts.enforceDescriptions) {
             if (
-                !description ||
-                (typeof description === 'object' && Object.keys(description).length < 1)
+                !msg.description ||
+                (typeof msg.description === 'object' && Object.keys(msg.description).length < 1)
             ) {
                 throw path.buildCodeFrameError(
                     '[React Intl] Message must have a `description`.'
@@ -165,7 +165,7 @@ export default function ({types: t}) {
             };
         }
 
-        messages.set(id, {id, description, defaultMessage, ...loc});
+        messages.set(msg.id, {...msg, ...loc});
     }
 
     function referencesImport(path, mod, importedNames) {
@@ -231,6 +231,7 @@ export default function ({types: t}) {
                 const moduleSourceName = getModuleSourceName(opts);
                 const shouldRemoveDefaultMessage = getShouldRemoveDefaultMessage(opts);
                 const keepDescriptions = getkeepDescriptions(opts);
+                const allowedProps = opts.allowedProps ? new Set([...DESCRIPTOR_PROPS, ...opts.allowedProps]) : DESCRIPTOR_PROPS;
 
                 const name = path.get('name');
 
@@ -249,6 +250,7 @@ export default function ({types: t}) {
                         .filter((attr) => attr.isJSXAttribute());
 
                     let descriptor = createMessageDescriptor(
+                        allowedProps,
                         attributes.map((attr) => [
                             attr.get('name'),
                             attr.get('value'),
@@ -289,10 +291,12 @@ export default function ({types: t}) {
             },
 
             CallExpression(path, state) {
-                const moduleSourceName = getModuleSourceName(state.opts);
-                const shouldRemoveDefaultMessage = getShouldRemoveDefaultMessage(state.opts);
-                const keepDescriptions = getkeepDescriptions(state.opts);
+                const {opts} = state;
+                const moduleSourceName = getModuleSourceName(opts);
+                const shouldRemoveDefaultMessage = getShouldRemoveDefaultMessage(opts);
+                const keepDescriptions = getkeepDescriptions(opts);
                 const callee = path.get('callee');
+                const allowedProps = opts.allowedProps ? new Set([...DESCRIPTOR_PROPS, ...opts.allowedProps]) : DESCRIPTOR_PROPS;
 
                 function assertObjectExpression(node) {
                     if (!(node && node.isObjectExpression())) {
@@ -315,6 +319,7 @@ export default function ({types: t}) {
                     const properties = messageObj.get('properties');
 
                     let descriptor = createMessageDescriptor(
+                        allowedProps,
                         properties.map((prop) => [
                             prop.get('key'),
                             prop.get('value'),

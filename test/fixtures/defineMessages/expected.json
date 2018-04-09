@@ -1,12 +1,12 @@
 [
   {
     "id": "foo.bar.baz",
-    "description": "The default message",
-    "defaultMessage": "Hello World!"
+    "defaultMessage": "Hello World!",
+    "description": "The default message"
   },
   {
     "id": "foo.bar.biff",
-    "description": "Another message",
-    "defaultMessage": "Hello Nurse!"
+    "defaultMessage": "Hello Nurse!",
+    "description": "Another message"
   }
 ]

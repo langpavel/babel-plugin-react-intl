@@ -1,7 +1,7 @@
 [
   {
     "id": "foo.bar.baz",
-    "description": "The default message.",
-    "defaultMessage": "Hello World!"
+    "defaultMessage": "Hello World!",
+    "description": "The default message."
   }
 ]
