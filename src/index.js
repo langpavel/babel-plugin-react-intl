@@ -188,12 +188,14 @@ export default function ({types: t}) {
 
             const newKeys = Object.keys(msg);
             newKeys.forEach((key) => {
-                if (existing[key] != msg[key]) {
+                if (existing[key] && msg[key] && existing[key] !== msg[key]) {
                     throw path.buildCodeFrameError(
                         `${ERR_PRELUDE}Duplicate message id: "${msg.id}", ` +
                         'but the `description` and/or `default` and/or `defaultMessage` are different.'
                     );
                 }
+                // fill up missing
+                existing[key] = msg[key];
             });
         }
 
