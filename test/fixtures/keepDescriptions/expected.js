@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", {
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
+var _foo;
+
 var _react = require('react');
 
 var _react2 = _interopRequireDefault(_react);
@@ -20,12 +22,12 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
 var messages = (0, _reactIntl.defineMessages)({
-    foo: {
-        'id': 'greeting-user',
-        'description': 'Greeting the user',
-        'defaultMessage': 'Hello, {name}'
-    }
+    foo: (_foo = {
+        'id': 'greeting-user'
+    }, _defineProperty(_foo, 'id', 'greeting-user'), _defineProperty(_foo, 'description', 'Greeting the user'), _defineProperty(_foo, 'defaultMessage', 'Hello, {name}'), _foo)
 });
 
 var Foo = function (_Component) {

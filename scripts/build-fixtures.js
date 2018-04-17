@@ -18,10 +18,10 @@ const fixtures = [
     }],
     ['keepDescriptions', {
         enforceDescriptions: true,
-        keepDescriptions: true,
+        removeProps: false,
     }],
     ['removeDefaultMessage', {
-        removeDefaultMessage: true,
+        removeProps: ['defaultMessage'],
     }],
 ];
 

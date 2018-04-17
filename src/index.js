@@ -1,7 +1,10 @@
 /*
  * Copyright 2015, Yahoo Inc.
+ * Pavel Lang (@langpavel) 2018
  * Copyrights licensed under the New BSD License.
  * See the accompanying LICENSE file for terms.
+ * 
+ * @flow
  */
 
 import * as p from 'path';
@@ -18,44 +21,91 @@ const FUNCTION_NAMES = [
     'defineMessages',
 ];
 
-const DESCRIPTOR_PROPS = new Set(['id', 'description', 'defaultMessage', 'default']);
-
 const EXTRACTED = Symbol('ReactIntlExtracted');
 const MESSAGES  = Symbol('ReactIntlMessages');
+const ERR_PRELUDE = '[babel-plugin-react-intl] ';
+
+/*::
+export type BabelPluginReactIntlProps = {
+    moduleSourceName?: string,
+    messageProps?: string[],
+    extraProps?: string[],
+    removeProps?: string[] | false,
+}
+*/
+
+const defaultOptions /*: BabelPluginReactIntlProps */ = {
+    // name of import or require module which sense this plugin
+    moduleSourceName: 'react-intl',
+    // if true, this module will capture exact source location of every definition
+    extractSourceLocation: false,
+    // require 'description' property in original source
+    enforceDescriptions: false,
+    // names of properties which must be ICU compliant
+    messageProps: ['defaultMessage'],
+    // names of other properties which will be extracted
+    extraProps: [],
+    // names of properties which will be removed from output
+    // should contain all messageProps in production build
+    removeProps: ['description'],
+    // directory, where extracted messages can be written.
+    messagesDir: undefined,
+};
+
+const configMap = new WeakMap;
+const getConfig = (opts /*: BabelPluginReactIntlProps */ = defaultOptions) => {
+    if (configMap.has(opts)) return configMap.get(opts);
+
+    const allowedKeys = Object.keys(defaultOptions);
+    const allowedKeySet = new Set(allowedKeys);
+
+    const optKeys = Object.keys(opts);
+    if (optKeys.some((key) => !allowedKeySet.has(key))) {
+        const unexpected = optKeys.filter((key) => !allowedKeySet.has(key));
+        throw new Error(`${ERR_PRELUDE}Unexpected ${unexpected}\nAllowed keys for 'babel-plugin-react-intl' are '${allowedKeys.join("', '")}'`);
+    }
+
+    const moduleSourceName = opts.moduleSourceName || defaultOptions.moduleSourceName;
+    const messagePropsArray = opts.messageProps || defaultOptions.messageProps;
+    const extraPropsArray = opts.extraProps || defaultOptions.extraProps;
+    const removePropsArray = typeof opts.removeProps !== 'undefined' ? (opts.removeProps || []) : defaultOptions.removeProps;
+
+    const config = {
+        moduleSourceName,
+        messageProps: new Set(messagePropsArray),
+        descriptorProps: new Set([
+            'id', 'description',
+            ...messagePropsArray,
+            ...extraPropsArray,
+        ]),
+        removeProps: new Set(removePropsArray),
+    };
+
+    configMap.set(opts, config);
+    return config;
+};
 
 export default function ({types: t}) {
-    function getModuleSourceName(opts) {
-        return opts.moduleSourceName || 'react-intl';
-    }
-
-    function getShouldRemoveDefaultMessage(opts) {
-        return !!opts.removeDefaultMessage;
-    }
-
-    function getkeepDescriptions(opts) {
-        return !!opts.keepDescriptions;
-    }
-
-    function evaluatePath(path) {
+    const evaluatePath = (path) => {
         const evaluated = path.evaluate();
         if (evaluated.confident) {
             return evaluated.value;
         }
 
         throw path.buildCodeFrameError(
-            '[React Intl] Messages must be statically evaluate-able for extraction.'
+            `${ERR_PRELUDE}Messages must be statically evaluate-able for extraction.`
         );
-    }
+    };
 
-    function getMessageDescriptorKey(path) {
+    const getMessageDescriptorKey = (path) => {
         if (path.isIdentifier() || path.isJSXIdentifier()) {
             return path.node.name;
         }
 
         return evaluatePath(path);
-    }
+    };
 
-    function getMessageDescriptorValue(path) {
+    const getMessageDescriptorValue = (path) => {
         if (path.isJSXExpressionContainer()) {
             path = path.get('expression');
         }
@@ -68,9 +118,9 @@ export default function ({types: t}) {
         }
 
         return descriptorValue;
-    }
+    };
 
-    function getICUMessageValue(messagePath, {isJSXSource = false} = {}) {
+    const getICUMessageValue = (messagePath, {isJSXSource = false} = {}) => {
         const message = getMessageDescriptorValue(messagePath);
 
         try {
@@ -81,7 +131,7 @@ export default function ({types: t}) {
                 message.indexOf('\\\\') >= 0) {
 
                 throw messagePath.buildCodeFrameError(
-                    '[React Intl] Message failed to parse. ' +
+                    `${ERR_PRELUDE}Message failed to parse. `+
                     'It looks like `\\`s were used for escaping, ' +
                     'this won\'t work with JSX string literals. ' +
                     'Wrap with `{}`. ' +
@@ -90,30 +140,30 @@ export default function ({types: t}) {
             }
 
             throw messagePath.buildCodeFrameError(
-                '[React Intl] Message failed to parse. ' +
+                `${ERR_PRELUDE}Message failed to parse. ` +
                 'See: http://formatjs.io/guides/message-syntax/' +
                 `\n${parseError}`
             );
         }
-    }
+    };
 
-    function createMessageDescriptor(allowedProps, propPaths) {
+    const createMessageDescriptor = (cfg, propPaths) => {
         return propPaths.reduce((hash, [keyPath, valuePath]) => {
             const key = getMessageDescriptorKey(keyPath);
 
-            if (allowedProps.has(key)) {
+            if (cfg.descriptorProps.has(key)) {
                 hash[key] = valuePath;
             }
 
             return hash;
-        }, {});
-    }
+        }, Object.create(null));
+    };
 
-    function evaluateMessageDescriptor({...descriptor}, {isJSXSource = false} = {}) {
+    const evaluateMessageDescriptor = (cfg, {...descriptor}, {isJSXSource = false} = {}) => {
         Object.keys(descriptor).forEach((key) => {
             const valuePath = descriptor[key];
 
-            if (key === 'defaultMessage') {
+            if (cfg.messageProps.has(key)) {
                 descriptor[key] = getICUMessageValue(valuePath, {isJSXSource});
             } else {
                 descriptor[key] = getMessageDescriptorValue(valuePath);
@@ -121,14 +171,14 @@ export default function ({types: t}) {
         });
 
         return descriptor;
-    }
+    };
 
-    function storeMessage(msg, path, state) {
+    const storeMessage = (msg, path, state) => {
         const {file, opts} = state;
 
-        if (!(msg.id && msg.defaultMessage)) {
+        if (!(msg.id)) {
             throw path.buildCodeFrameError(
-                '[React Intl] Message Descriptors require an `id` and `defaultMessage`.'
+                `${ERR_PRELUDE}Message Descriptors require an 'id'.`
             );
         }
 
@@ -136,14 +186,15 @@ export default function ({types: t}) {
         if (messages.has(msg.id)) {
             const existing = messages.get(msg.id);
 
-            if (msg.description !== existing.description ||
-                msg.defaultMessage !== existing.msg.defaultMessage) {
-
-                throw path.buildCodeFrameError(
-                    `[React Intl] Duplicate message id: "${msg.id}", ` +
-                    'but the `description` and/or `defaultMessage` are different.'
-                );
-            }
+            const newKeys = Object.keys(msg);
+            newKeys.forEach((key) => {
+                if (existing[key] != msg[key]) {
+                    throw path.buildCodeFrameError(
+                        `${ERR_PRELUDE}Duplicate message id: "${msg.id}", ` +
+                        'but the `description` and/or `default` and/or `defaultMessage` are different.'
+                    );
+                }
+            });
         }
 
         if (opts.enforceDescriptions) {
@@ -152,7 +203,7 @@ export default function ({types: t}) {
                 (typeof msg.description === 'object' && Object.keys(msg.description).length < 1)
             ) {
                 throw path.buildCodeFrameError(
-                    '[React Intl] Message must have a `description`.'
+                    `${ERR_PRELUDE}Message must have a 'description'.`
                 );
             }
         }
@@ -166,23 +217,23 @@ export default function ({types: t}) {
         }
 
         messages.set(msg.id, {...msg, ...loc});
-    }
+    };
 
-    function referencesImport(path, mod, importedNames) {
+    const referencesImport = (path, mod, importedNames) => {
         if (!(path.isIdentifier() || path.isJSXIdentifier())) {
             return false;
         }
 
         return importedNames.some((name) => path.referencesImport(mod, name));
-    }
+    };
 
-    function tagAsExtracted(path) {
+    const tagAsExtracted = (path) => {
         path.node[EXTRACTED] = true;
-    }
+    };
 
-    function wasExtracted(path) {
+    const wasExtracted = (path) => {
         return !!path.node[EXTRACTED];
-    }
+    };
 
     return {
         pre(file) {
@@ -228,16 +279,13 @@ export default function ({types: t}) {
                 }
 
                 const {file, opts} = state;
-                const moduleSourceName = getModuleSourceName(opts);
-                const shouldRemoveDefaultMessage = getShouldRemoveDefaultMessage(opts);
-                const keepDescriptions = getkeepDescriptions(opts);
-                const allowedProps = opts.allowedProps ? new Set([...DESCRIPTOR_PROPS, ...opts.allowedProps]) : DESCRIPTOR_PROPS;
+                const cfg = getConfig(opts);
 
                 const name = path.get('name');
 
-                if (name.referencesImport(moduleSourceName, 'FormattedPlural')) {
+                if (name.referencesImport(cfg.moduleSourceName, 'FormattedPlural')) {
                     file.log.warn(
-                        `[React Intl] Line ${path.node.loc.start.line}: ` +
+                        `${ERR_PRELUDE}Line ${path.node.loc.start.line}: ` +
                         'Default messages are not extracted from ' +
                         '<FormattedPlural>, use <FormattedMessage> instead.'
                     );
@@ -245,12 +293,12 @@ export default function ({types: t}) {
                     return;
                 }
 
-                if (referencesImport(name, moduleSourceName, COMPONENT_NAMES)) {
+                if (referencesImport(name, cfg.moduleSourceName, COMPONENT_NAMES)) {
                     const attributes = path.get('attributes')
                         .filter((attr) => attr.isJSXAttribute());
 
                     let descriptor = createMessageDescriptor(
-                        allowedProps,
+                        cfg,
                         attributes.map((attr) => [
                             attr.get('name'),
                             attr.get('value'),
@@ -263,11 +311,11 @@ export default function ({types: t}) {
                     // write `<FormattedMessage {...descriptor} />` or
                     // `<FormattedMessage id={dynamicId} />`, because it will be
                     // skipped here and extracted elsewhere. The descriptor will
-                    // be extracted only if a `defaultMessage` prop exists.
-                    if (descriptor.defaultMessage) {
+                    // be extracted only if a some prop is in MESSAGE_PROPS.
+                    if (Object.keys(descriptor).some((key) => cfg.messageProps.has(key))) {
                         // Evaluate the Message Descriptor values in a JSX
                         // context, then store it.
-                        descriptor = evaluateMessageDescriptor(descriptor, {
+                        descriptor = evaluateMessageDescriptor(cfg, descriptor, {
                             isJSXSource: true,
                         });
 
@@ -276,10 +324,8 @@ export default function ({types: t}) {
                         // Remove description since it's not used at runtime.
                         attributes.forEach((attr) => {
                             const keyPath = attr.get('name');
-                            if (!keepDescriptions && getMessageDescriptorKey(keyPath) === 'description') {
-                                attr.remove();
-                            }
-                            if (shouldRemoveDefaultMessage && getMessageDescriptorKey(keyPath) === 'defaultMessage') {
+                            const key = getMessageDescriptorKey(keyPath);
+                            if (cfg.removeProps && cfg.removeProps.has(key)) {
                                 attr.remove();
                             }
                         });
@@ -292,34 +338,29 @@ export default function ({types: t}) {
 
             CallExpression(path, state) {
                 const {opts} = state;
-                const moduleSourceName = getModuleSourceName(opts);
-                const shouldRemoveDefaultMessage = getShouldRemoveDefaultMessage(opts);
-                const keepDescriptions = getkeepDescriptions(opts);
                 const callee = path.get('callee');
-                const allowedProps = opts.allowedProps ? new Set([...DESCRIPTOR_PROPS, ...opts.allowedProps]) : DESCRIPTOR_PROPS;
+                const cfg = getConfig(opts);
 
-                function assertObjectExpression(node) {
+                const assertObjectExpression = (node) => {
                     if (!(node && node.isObjectExpression())) {
                         throw path.buildCodeFrameError(
-                            `[React Intl] \`${callee.node.name}()\` must be ` +
+                            `${ERR_PRELUDE}\`${callee.node.name}()\` must be ` +
                             'called with an object expression with values ' +
                             'that are React Intl Message Descriptors, also ' +
                             'defined as object expressions.'
                         );
                     }
-                }
+                };
 
-                function processMessageObject(messageObj) {
+                const processMessageObject = (messageObj) => {
                     assertObjectExpression(messageObj);
 
-                    if (wasExtracted(messageObj)) {
-                        return;
-                    }
+                    if (wasExtracted(messageObj)) return;
 
                     const properties = messageObj.get('properties');
 
                     let descriptor = createMessageDescriptor(
-                        allowedProps,
+                        cfg,
                         properties.map((prop) => [
                             prop.get('key'),
                             prop.get('value'),
@@ -327,8 +368,13 @@ export default function ({types: t}) {
                     );
 
                     // Evaluate the Message Descriptor values, then store it.
-                    descriptor = evaluateMessageDescriptor(descriptor);
+                    descriptor = evaluateMessageDescriptor(cfg, descriptor);
                     storeMessage(descriptor, messageObj, state);
+
+                    // Tag the AST node so we don't try to extract it twice.
+                    tagAsExtracted(messageObj);
+
+                    if (!cfg.removeProps) return;
 
                     const replacementObject = [
                         t.objectProperty(
@@ -337,31 +383,21 @@ export default function ({types: t}) {
                         ),
                     ];
 
-                    if (keepDescriptions) {
+                    const keys = Object.keys(descriptor);
+                    keys.forEach((key) => {
+                        if (cfg.removeProps.has(key)) return;
                         replacementObject.push(
                             t.objectProperty(
-                                t.stringLiteral('description'),
-                                t.stringLiteral(descriptor.description)
+                                t.stringLiteral(key),
+                                t.stringLiteral(descriptor[key])
                             )
                         );
-                    }
+                    });
 
-                    if (!shouldRemoveDefaultMessage) {
-                        replacementObject.push(
-                            t.objectProperty(
-                                t.stringLiteral('defaultMessage'),
-                                t.stringLiteral(descriptor.defaultMessage)
-                            )    
-                        );    
-                    }    
-                
                     messageObj.replaceWith(t.objectExpression(replacementObject));
+                };
 
-                    // Tag the AST node so we don't try to extract it twice.
-                    tagAsExtracted(messageObj);
-                }
-
-                if (referencesImport(callee, moduleSourceName, FUNCTION_NAMES)) {
+                if (referencesImport(callee, cfg.moduleSourceName, FUNCTION_NAMES)) {
                     const messagesObj = path.get('arguments')[0];
 
                     assertObjectExpression(messagesObj);

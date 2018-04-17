@@ -59,11 +59,11 @@ describe('options', () => {
             assert(false);
         } catch (e) {
             assert(e);
-            assert(/Message must have a `description`/.test(e.message));
+            assert(/Message must have a 'description'/.test(e.message));
         }
     });
 
-    it('allows no description when enforceDescription=false', () => {
+    it('allows no description when enforceDescriptions=false', () => {
         const fixtureDir = path.join(fixturesDir, 'enforceDescriptions');
 
         try {
@@ -77,29 +77,13 @@ describe('options', () => {
         }
     });
 
-    it('removes descriptions when plugin is applied more than once', () => {
-        const fixtureDir = path.join(fixturesDir, 'removeDescriptions');
-
-        try {
-            transform(path.join(fixtureDir, 'actual.js'), {
-                enforceDescriptions: true,
-            }, {
-                multiplePasses: true,
-            });
-            assert(true);
-        } catch (e) {
-            console.error(e);
-            assert(false);
-        }
-    });
-
-    it('keep descriptions when plugin is applied more than once with keepDescriptions=true', () => {
+    it('keep descriptions when plugin is applied more than once with removeProps=false', () => {
         const fixtureDir = path.join(fixturesDir, 'keepDescriptions');
 
         try {
             transform(path.join(fixtureDir, 'actual.js'), {
                 enforceDescriptions: true,
-                keepDescriptions: true,
+                removeProps: false,
             }, {
                 multiplePasses: true,
             });
