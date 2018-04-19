@@ -1,7 +1,7 @@
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+  value: true
 });
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -25,44 +25,44 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
 
 var msgs = (0, _reactIntl.defineMessages)({
-    header: (_header = {
-        'id': 'foo.bar.baz'
-    }, _defineProperty(_header, 'id', 'foo.bar.baz'), _defineProperty(_header, 'defaultMessage', 'Hello World!'), _header),
-    content: (_content = {
-        'id': 'foo.bar.biff'
-    }, _defineProperty(_content, 'id', 'foo.bar.biff'), _defineProperty(_content, 'defaultMessage', 'Hello Nurse!'), _content)
+  header: (_header = {
+    'id': 'foo.bar.baz'
+  }, _defineProperty(_header, 'id', 'foo.bar.baz'), _defineProperty(_header, 'defaultMessage', 'Hello World!'), _header),
+  content: (_content = {
+    'id': 'foo.bar.biff'
+  }, _defineProperty(_content, 'id', 'foo.bar.biff'), _defineProperty(_content, 'defaultMessage', 'Hello Nurse!'), _content)
 });
 
 var Foo = function (_Component) {
-    _inherits(Foo, _Component);
+  _inherits(Foo, _Component);
 
-    function Foo() {
-        _classCallCheck(this, Foo);
+  function Foo() {
+    _classCallCheck(this, Foo);
 
-        return _possibleConstructorReturn(this, (Foo.__proto__ || Object.getPrototypeOf(Foo)).apply(this, arguments));
+    return _possibleConstructorReturn(this, (Foo.__proto__ || Object.getPrototypeOf(Foo)).apply(this, arguments));
+  }
+
+  _createClass(Foo, [{
+    key: 'render',
+    value: function render() {
+      return _react2.default.createElement(
+        'div',
+        null,
+        _react2.default.createElement(
+          'h1',
+          null,
+          _react2.default.createElement(_reactIntl.FormattedMessage, msgs.header)
+        ),
+        _react2.default.createElement(
+          'p',
+          null,
+          _react2.default.createElement(_reactIntl.FormattedMessage, msgs.content)
+        )
+      );
     }
+  }]);
 
-    _createClass(Foo, [{
-        key: 'render',
-        value: function render() {
-            return _react2.default.createElement(
-                'div',
-                null,
-                _react2.default.createElement(
-                    'h1',
-                    null,
-                    _react2.default.createElement(_reactIntl.FormattedMessage, msgs.header)
-                ),
-                _react2.default.createElement(
-                    'p',
-                    null,
-                    _react2.default.createElement(_reactIntl.FormattedMessage, msgs.content)
-                )
-            );
-        }
-    }]);
-
-    return Foo;
+  return Foo;
 }(_react.Component);
 
 exports.default = Foo;
