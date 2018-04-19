@@ -82,7 +82,8 @@ const getConfig = (opts /*: BabelPluginReactIntlConfig */ = defaultOptions) => {
         // $FlowFixMe
         removePropsArray = defaultOptions.removeProps;
     } else if (opts.removeProps === true) {
-        removePropsArray = messagePropsArray;
+        // everything except `id`
+        removePropsArray = ['description', ...messagePropsArray, ...extraPropsArray];
     } else if (opts.removeProps === false) {
         removePropsArray = [];
     } else if (Array.isArray(opts.removeProps)) {
