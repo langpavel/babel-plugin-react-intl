@@ -26,15 +26,18 @@ const MESSAGES  = Symbol('ReactIntlMessages');
 const ERR_PRELUDE = '[babel-plugin-react-intl] ';
 
 /*::
-export type BabelPluginReactIntlProps = {
+export type BabelPluginReactIntlConfig = {|
     moduleSourceName?: string,
+    extractSourceLocation: boolean,
+    enforceDescriptions: boolean,
     messageProps?: string[],
     extraProps?: string[],
-    removeProps?: string[] | false,
-}
+    removeProps?: string[] | boolean,
+    messagesDir?: string,
+|}
 */
 
-const defaultOptions /*: BabelPluginReactIntlProps */ = {
+const defaultOptions = {
     // name of import or require module which sense this plugin
     moduleSourceName: 'react-intl',
     // if true, this module will capture exact source location of every definition
@@ -53,8 +56,9 @@ const defaultOptions /*: BabelPluginReactIntlProps */ = {
 };
 
 const configMap = new WeakMap;
-const getConfig = (opts /*: BabelPluginReactIntlProps */ = defaultOptions) => {
-    if (configMap.has(opts)) return configMap.get(opts);
+const getConfig = (opts /*: BabelPluginReactIntlConfig */ = defaultOptions) => {
+    const cached = configMap.get(opts);
+    if (cached) return cached;
 
     const allowedKeys = Object.keys(defaultOptions);
     const allowedKeySet = new Set(allowedKeys);
@@ -62,22 +66,42 @@ const getConfig = (opts /*: BabelPluginReactIntlProps */ = defaultOptions) => {
     const optKeys = Object.keys(opts);
     if (optKeys.some((key) => !allowedKeySet.has(key))) {
         const unexpected = optKeys.filter((key) => !allowedKeySet.has(key));
-        throw new Error(`${ERR_PRELUDE}Unexpected ${unexpected}\nAllowed keys for 'babel-plugin-react-intl' are '${allowedKeys.join("', '")}'`);
+        throw new Error(
+            `${ERR_PRELUDE}Unexpected '${unexpected.join("', '")}'\n` +
+            `Allowed keys for 'babel-plugin-react-intl' are '${allowedKeys.join("', '")}'`
+        );
     }
 
     const moduleSourceName = opts.moduleSourceName || defaultOptions.moduleSourceName;
-    const messagePropsArray = opts.messageProps || defaultOptions.messageProps;
-    const extraPropsArray = opts.extraProps || defaultOptions.extraProps;
-    const removePropsArray = typeof opts.removeProps !== 'undefined' ? (opts.removeProps || []) : defaultOptions.removeProps;
+    const extractSourceLocation = opts.extractSourceLocation || defaultOptions.extractSourceLocation;
+    const enforceDescriptions = opts.enforceDescriptions || defaultOptions.enforceDescriptions;
+    const messagePropsArray /*: string[] */ = opts.messageProps || defaultOptions.messageProps || [];
+    const extraPropsArray /*: string[] */ = opts.extraProps || defaultOptions.extraProps || [];
+    let removePropsArray /*: string[] */;
+    if (typeof opts.removeProps === 'undefined') {
+        // $FlowFixMe
+        removePropsArray = defaultOptions.removeProps;
+    } else if (opts.removeProps === true) {
+        removePropsArray = messagePropsArray;
+    } else if (opts.removeProps === false) {
+        removePropsArray = [];
+    } else if (Array.isArray(opts.removeProps)) {
+        removePropsArray = opts.removeProps;
+    } else {
+        throw new Error(`${ERR_PRELUDE}'removeProps' must be true, false of array of string`);
+    }
 
     const config = {
         moduleSourceName,
+        extractSourceLocation,
+        enforceDescriptions,
         messageProps: new Set(messagePropsArray),
         descriptorProps: new Set([
             'id', 'description',
             ...messagePropsArray,
             ...extraPropsArray,
         ]),
+        // $FlowFixMe
         removeProps: new Set(removePropsArray),
     };
 
@@ -85,6 +109,7 @@ const getConfig = (opts /*: BabelPluginReactIntlProps */ = defaultOptions) => {
     return config;
 };
 
+// $FlowFixMe
 export default function ({types: t}) {
     const evaluatePath = (path) => {
         const evaluated = path.evaluate();
@@ -238,12 +263,14 @@ export default function ({types: t}) {
     };
 
     return {
+        // $FlowFixMe
         pre(file) {
             if (!file.has(MESSAGES)) {
                 file.set(MESSAGES, new Map());
             }
         },
 
+        // $FlowFixMe
         post(file) {
             const {opts} = this;
             const {filename} = file.opts;
@@ -275,6 +302,7 @@ export default function ({types: t}) {
         },
 
         visitor: {
+            // $FlowFixMe
             JSXOpeningElement(path, state) {
                 if (wasExtracted(path)) {
                     return;
@@ -338,6 +366,7 @@ export default function ({types: t}) {
                 }
             },
 
+            // $FlowFixMe
             CallExpression(path, state) {
                 const {opts} = state;
                 const callee = path.get('callee');
